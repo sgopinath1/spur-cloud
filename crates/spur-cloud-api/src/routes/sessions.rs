@@ -139,9 +139,9 @@ pub async fn create_session(
         String::new()
     };
 
-    // Compute SSH port for bare-metal mode
-    let ssh_port = if req.ssh_enabled && state.config.server.backend == Backend::BareMetal {
-        let bm = state.config.bare_metal.as_ref();
+    // Compute SSH port for native-host mode
+    let ssh_port = if req.ssh_enabled && state.config.server.backend == Backend::NativeHost {
+        let bm = state.config.native_host.as_ref();
         Some(ssh::service_manager::ssh_port_for_session(
             &session.id,
             bm.map(|c| c.ssh_port_base).unwrap_or(10000),
@@ -151,7 +151,7 @@ pub async fn create_session(
         None
     };
 
-    // Submit to Spur — different paths for K8s and bare-metal
+    // Submit to Spur — different paths for K8s and native-host
     match state.config.server.backend {
         Backend::K8s => {
             // K8s mode: create a SpurJob CRD. The spur-k8s operator watches
@@ -188,8 +188,8 @@ pub async fn create_session(
                 }
             }
         }
-        Backend::BareMetal => {
-            // Bare-metal mode: submit directly to spurctld via gRPC
+        Backend::NativeHost => {
+            // Native-host mode: submit directly to spurctld via gRPC
             let mut spur = state.spur.clone();
             match spur_client::submit_session(
                 &mut spur,
@@ -203,7 +203,7 @@ pub async fn create_session(
                 &session.id.to_string(),
                 &ssh_keys_str,
                 ssh_port,
-                true, // bare_metal
+                true, // native_host
             )
             .await
             {
@@ -299,8 +299,8 @@ pub async fn delete_session(
                 }
             }
         }
-        Backend::BareMetal => {
-            // Bare-metal: cancel via gRPC
+        Backend::NativeHost => {
+            // Native-host: cancel via gRPC
             if let Some(job_id) = session.spur_job_id {
                 let mut spur = state.spur.clone();
                 if let Err(e) = spur_client::cancel_job(&mut spur, job_id as u32).await {

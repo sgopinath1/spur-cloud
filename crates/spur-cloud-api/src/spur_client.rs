@@ -207,8 +207,8 @@ pub async fn delete_spurjob_crd(
 
 /// Submit a GPU session as a Spur job. Returns the assigned job ID.
 ///
-/// `ssh_port`: If set, passed as GPUAAS_SSH_PORT (used in bare-metal mode for deterministic sshd port).
-/// `bare_metal`: If true, clears container_image so Spur runs the job as a bare process.
+/// `ssh_port`: If set, passed as GPUAAS_SSH_PORT (used in native-host mode for deterministic sshd port).
+/// `native_host`: If true, clears container_image so Spur runs the job as a bare process.
 pub async fn submit_session(
     client: &mut SlurmControllerClient<Channel>,
     name: &str,
@@ -221,7 +221,7 @@ pub async fn submit_session(
     session_id: &str,
     ssh_keys: &str,
     ssh_port: Option<u16>,
-    bare_metal: bool,
+    native_host: bool,
 ) -> anyhow::Result<u32> {
     let mut environment = HashMap::new();
     environment.insert("GPUAAS_SESSION_ID".into(), session_id.to_string());
@@ -328,8 +328,8 @@ pub async fn submit_session(
             nanos: 0,
         }),
         interactive: true,
-        // Bare-metal mode: skip container image, run as bare process
-        container_image: if bare_metal {
+        // Native-host mode: skip container image, run as bare process
+        container_image: if native_host {
             String::new()
         } else {
             container_image.to_string()

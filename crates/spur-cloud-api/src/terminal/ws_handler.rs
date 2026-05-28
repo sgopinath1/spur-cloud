@@ -17,7 +17,7 @@ const WS_PING_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30)
 /// Issue #39: Maximum time to wait for a WebSocket send before treating it as dead.
 const WS_SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
-/// Issue #39: Maximum retries for connecting to the agent (bare-metal mode).
+/// Issue #39: Maximum retries for connecting to the agent (native-host mode).
 const AGENT_CONNECT_RETRIES: u32 = 3;
 
 /// Issue #39: Delay between agent connection retries.
@@ -163,7 +163,7 @@ pub async fn handle_terminal(
 }
 
 /// Bridge a WebSocket connection to a Spur agent's AttachJob gRPC stream.
-/// Used in bare-metal mode — connects directly to the spurd agent on the compute node.
+/// Used in native-host mode — connects directly to the spurd agent on the compute node.
 ///
 /// Flow: xterm.js (browser) <-> WebSocket <-> AttachJob gRPC <-> nsenter bash (job)
 ///

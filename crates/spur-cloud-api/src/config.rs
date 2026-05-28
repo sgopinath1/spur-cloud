@@ -5,7 +5,7 @@ use serde::Deserialize;
 pub enum Backend {
     #[default]
     K8s,
-    BareMetal,
+    NativeHost,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -21,9 +21,9 @@ pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
 
-    /// Bare-metal backend configuration (required when server.backend = "bare_metal")
+    /// Native-host backend configuration (required when server.backend = "native_host")
     #[serde(default)]
-    pub bare_metal: Option<BareMetalConfig>,
+    pub native_host: Option<NativeHostConfig>,
 
     /// Auto-update check configuration.
     #[serde(default)]
@@ -36,7 +36,7 @@ pub struct ServerConfig {
     pub listen_addr: String,
     #[serde(default = "default_session_namespace")]
     pub session_namespace: String,
-    /// Backend type: "k8s" (default) or "bare_metal"
+    /// Backend type: "k8s" (default) or "native_host"
     #[serde(default)]
     pub backend: Backend,
 }
@@ -52,7 +52,7 @@ impl Default for ServerConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct BareMetalConfig {
+pub struct NativeHostConfig {
     /// Port where spurd agents listen (default: 6818)
     #[serde(default = "default_agent_port")]
     pub agent_port: u16,
