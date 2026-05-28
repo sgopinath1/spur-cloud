@@ -12,7 +12,7 @@ use crate::config::Config;
 pub struct AppState {
     pub db: PgPool,
     pub spur: SlurmControllerClient<Channel>,
-    /// K8s client — None when running in bare-metal mode.
+    /// K8s client — None when running in native-host mode.
     pub kube: Option<kube::Client>,
     pub config: Arc<Config>,
 }

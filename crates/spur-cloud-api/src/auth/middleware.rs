@@ -116,7 +116,7 @@ mod tests {
                     okta: None,
                 },
                 server: ServerConfig::default(),
-                bare_metal: None,
+                native_host: None,
                 update: Default::default(),
             }),
         }

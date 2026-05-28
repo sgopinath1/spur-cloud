@@ -74,7 +74,7 @@ pub async fn terminal_upgrade(
             })
             .into_response()
         }
-        Backend::BareMetal => {
+        Backend::NativeHost => {
             let job_id = match session.spur_job_id {
                 Some(id) => id as u32,
                 None => {
@@ -84,7 +84,7 @@ pub async fn terminal_upgrade(
             let spur = state.spur.clone();
             let agent_port = state
                 .config
-                .bare_metal
+                .native_host
                 .as_ref()
                 .map(|c| c.agent_port)
                 .unwrap_or(6818);

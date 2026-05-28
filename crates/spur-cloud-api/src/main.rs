@@ -84,8 +84,8 @@ async fn main() -> anyhow::Result<()> {
             info!("connected to kubernetes");
             Some(client)
         }
-        config::Backend::BareMetal => {
-            info!("bare-metal backend — skipping kubernetes client init");
+        config::Backend::NativeHost => {
+            info!("native-host backend — skipping kubernetes client init");
             None
         }
     };
@@ -277,8 +277,8 @@ async fn transition_session_to_running(
                     }
                 }
             }
-            config::Backend::BareMetal => {
-                let bm = state.config.bare_metal.as_ref();
+            config::Backend::NativeHost => {
+                let bm = state.config.native_host.as_ref();
                 let ssh_port = ssh::service_manager::ssh_port_for_session(
                     &session.id,
                     bm.map(|c| c.ssh_port_base).unwrap_or(10000),
@@ -417,11 +417,11 @@ async fn session_sync_loop(state: AppState) {
 
             if new_state == SessionState::Running {
                 let node_name = job.nodelist.clone();
-                // K8s pod name format includes the sanitized node; for BareMetal the
+                // K8s pod name format includes the sanitized node; for NativeHost the
                 // value is unused for SSH but is still persisted to the DB.
                 let pod_name = match state.config.server.backend {
                     config::Backend::K8s => spur_client::pod_name_for(job_id, &node_name),
-                    config::Backend::BareMetal => format!("spur-job-{}", job_id),
+                    config::Backend::NativeHost => format!("spur-job-{}", job_id),
                 };
 
                 if let Err(e) =
@@ -441,7 +441,7 @@ async fn session_sync_loop(state: AppState) {
                     db::billing_repo::record_usage_end(&state.db, session.id, chrono::Utc::now())
                         .await;
 
-                // Clean up K8s SSH service (BareMetal sshd dies with the job)
+                // Clean up K8s SSH service (NativeHost sshd dies with the job)
                 if session.ssh_enabled {
                     if let config::Backend::K8s = state.config.server.backend {
                         let ns = &state.config.server.session_namespace;

@@ -7,11 +7,11 @@ public_url = "http://localhost:8080"
 [server]
 listen_addr = "0.0.0.0:8080"
 session_namespace = "spur-sessions"
-# Backend type: "k8s" (default) or "bare_metal"
-# backend = "bare_metal"
+# Backend type: "k8s" (default) or "native_host"
+# backend = "native_host"
 
-# Bare-metal backend configuration (only used when backend = "bare_metal")
-# [bare_metal]
+# Native-host backend configuration (only used when backend = "native_host")
+# [native_host]
 # agent_port = 6818        # Port where spurd agents listen
 # ssh_port_base = 10000    # Base port for SSH port allocation
 # ssh_port_range = 50000   # Range of SSH ports
