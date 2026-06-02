@@ -139,6 +139,8 @@ pub fn spawn_startup_check(current_version: &'static str, config: &UpdateConfig)
         return;
     }
 
+    debug!(channel = %config.channel, "spawning startup update check");
+
     let cache_dir = PathBuf::from(&config.cache_dir);
 
     tokio::spawn(async move {

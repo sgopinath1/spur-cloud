@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::auth::principal::Principal;
 use crate::config::Backend;
 use crate::db::{session_repo, ssh_key_repo, user_repo};
-use crate::models::session::SessionDetail;
+use crate::models::session::{NewSession, SessionDetail};
 use crate::spur_client;
 use crate::ssh;
 use crate::state::AppState;
@@ -107,14 +107,16 @@ pub async fn create_session(
     // Create session in DB
     let session = match session_repo::create_session(
         &state.db,
-        principal.user_id,
-        &req.name,
-        &req.gpu_type,
-        req.gpu_count,
-        &req.container_image,
-        req.partition.as_deref(),
-        req.ssh_enabled,
-        req.time_limit_min,
+        NewSession {
+            user_id: principal.user_id,
+            name: &req.name,
+            gpu_type: &req.gpu_type,
+            gpu_count: req.gpu_count,
+            container_image: &req.container_image,
+            partition: req.partition.as_deref(),
+            ssh_enabled: req.ssh_enabled,
+            time_limit_min: req.time_limit_min,
+        },
     )
     .await
     {
@@ -151,6 +153,8 @@ pub async fn create_session(
         None
     };
 
+    let session_id_str = session.id.to_string();
+
     // Submit to Spur — different paths for K8s and native-host
     match state.config.server.backend {
         Backend::K8s => {
@@ -161,17 +165,16 @@ pub async fn create_session(
                 .as_ref()
                 .expect("k8s backend requires kube client");
             let ns = &state.config.server.session_namespace;
-            match spur_client::create_spurjob_crd(
+            match spur_client::create_spurjob_crd(spur_client::CreateSpurJobCrdParams {
                 kube_client,
-                ns,
-                &session.id.to_string(),
-                &req.name,
-                &req.gpu_type,
-                req.gpu_count,
-                &req.container_image,
-                req.time_limit_min,
-                req.ssh_enabled,
-            )
+                namespace: ns,
+                session_id: &session_id_str,
+                name: &req.name,
+                gpu_type: &req.gpu_type,
+                gpu_count: req.gpu_count,
+                container_image: &req.container_image,
+                time_limit_min: req.time_limit_min,
+            })
             .await
             {
                 Ok(crd_name) => {
@@ -190,21 +193,34 @@ pub async fn create_session(
         }
         Backend::NativeHost => {
             // Native-host mode: submit directly to spurctld via gRPC
+            let user = match user_repo::get_user_by_id(&state.db, principal.user_id).await {
+                Ok(Some(u)) => u,
+                Ok(None) => {
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "user not found").into_response();
+                }
+                Err(e) => {
+                    error!("user lookup failed: {e}");
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "session creation failed")
+                        .into_response();
+                }
+            };
             let mut spur = state.spur.clone();
-            match spur_client::submit_session(
-                &mut spur,
-                &req.name,
-                &req.gpu_type,
-                req.gpu_count,
-                &req.container_image,
-                req.partition.as_deref(),
-                req.ssh_enabled,
-                req.time_limit_min,
-                &session.id.to_string(),
-                &ssh_keys_str,
+            match spur_client::submit_session(spur_client::SubmitSessionParams {
+                client: &mut spur,
+                name: &req.name,
+                gpu_type: &req.gpu_type,
+                gpu_count: req.gpu_count,
+                container_image: &req.container_image,
+                partition: req.partition.as_deref(),
+                ssh_enabled: req.ssh_enabled,
+                time_limit_min: req.time_limit_min,
+                session_id: &session_id_str,
+                ssh_keys: &ssh_keys_str,
                 ssh_port,
-                true, // native_host
-            )
+                native_host: true,
+                spur_user: &user.username,
+                spur_account: &user.spur_account,
+            })
             .await
             {
                 Ok(job_id) => {

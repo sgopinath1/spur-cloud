@@ -111,6 +111,11 @@ pub async fn okta_callback(
         }
     };
 
+    if let Err(e) = oidc_common::validate_id_token_issuer(&claims, &discovery.issuer) {
+        error!("Okta ID token issuer validation failed: {e}");
+        return (StatusCode::BAD_GATEWAY, "invalid ID token").into_response();
+    }
+
     let email = claims
         .email
         .unwrap_or_else(|| format!("{}@okta.local", claims.sub));

@@ -29,7 +29,7 @@ impl SessionState {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "creating" => Self::Creating,
             "pending" => Self::Pending,
@@ -83,10 +83,6 @@ pub struct CreateSessionRequest {
 
 fn default_gpu_type() -> String {
     "none".into()
-}
-
-fn default_gpu_count() -> i32 {
-    0
 }
 
 fn default_time_limit() -> i32 {

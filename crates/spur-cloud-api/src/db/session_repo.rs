@@ -2,19 +2,9 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::models::session::Session;
+use crate::models::session::{NewSession, Session};
 
-pub async fn create_session(
-    pool: &PgPool,
-    user_id: Uuid,
-    name: &str,
-    gpu_type: &str,
-    gpu_count: i32,
-    container_image: &str,
-    partition: Option<&str>,
-    ssh_enabled: bool,
-    time_limit_min: i32,
-) -> sqlx::Result<Session> {
+pub async fn create_session(pool: &PgPool, session: NewSession<'_>) -> sqlx::Result<Session> {
     sqlx::query_as::<_, Session>(
         r#"
         INSERT INTO sessions (user_id, name, gpu_type, gpu_count, container_image, partition, ssh_enabled, time_limit_min)
@@ -22,23 +12,16 @@ pub async fn create_session(
         RETURNING *
         "#,
     )
-    .bind(user_id)
-    .bind(name)
-    .bind(gpu_type)
-    .bind(gpu_count)
-    .bind(container_image)
-    .bind(partition)
-    .bind(ssh_enabled)
-    .bind(time_limit_min)
+    .bind(session.user_id)
+    .bind(session.name)
+    .bind(session.gpu_type)
+    .bind(session.gpu_count)
+    .bind(session.container_image)
+    .bind(session.partition)
+    .bind(session.ssh_enabled)
+    .bind(session.time_limit_min)
     .fetch_one(pool)
     .await
-}
-
-pub async fn get_session(pool: &PgPool, id: Uuid) -> sqlx::Result<Option<Session>> {
-    sqlx::query_as::<_, Session>("SELECT * FROM sessions WHERE id = $1")
-        .bind(id)
-        .fetch_optional(pool)
-        .await
 }
 
 pub async fn get_session_for_user(

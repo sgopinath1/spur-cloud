@@ -51,7 +51,7 @@ pub async fn add_ssh_key(
     Json(req): Json<AddSshKeyRequest>,
 ) -> impl IntoResponse {
     // Validate SSH key format
-    let parts: Vec<&str> = req.public_key.trim().split_whitespace().collect();
+    let parts: Vec<&str> = req.public_key.split_whitespace().collect();
     if parts.len() < 2 {
         return (StatusCode::BAD_REQUEST, "invalid SSH public key format").into_response();
     }
@@ -97,13 +97,13 @@ fn compute_fingerprint(public_key: &str) -> String {
     use base64::Engine;
     use sha2::{Digest, Sha256};
 
-    let parts: Vec<&str> = public_key.trim().split_whitespace().collect();
+    let parts: Vec<&str> = public_key.split_whitespace().collect();
     if parts.len() >= 2 {
         if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(parts[1]) {
             let digest = Sha256::digest(&decoded);
             return format!(
                 "SHA256:{}",
-                base64::engine::general_purpose::STANDARD_NO_PAD.encode(&digest)
+                base64::engine::general_purpose::STANDARD_NO_PAD.encode(digest)
             );
         }
     }
@@ -111,6 +111,6 @@ fn compute_fingerprint(public_key: &str) -> String {
     let digest = Sha256::digest(public_key.as_bytes());
     format!(
         "SHA256:{}",
-        base64::engine::general_purpose::STANDARD_NO_PAD.encode(&digest)
+        base64::engine::general_purpose::STANDARD_NO_PAD.encode(digest)
     )
 }

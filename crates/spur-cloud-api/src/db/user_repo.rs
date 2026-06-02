@@ -38,13 +38,6 @@ pub async fn get_user_by_email(pool: &PgPool, email: &str) -> sqlx::Result<Optio
         .await
 }
 
-pub async fn get_user_by_username(pool: &PgPool, username: &str) -> sqlx::Result<Option<User>> {
-    sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = $1")
-        .bind(username)
-        .fetch_optional(pool)
-        .await
-}
-
 pub async fn upsert_github_user(
     pool: &PgPool,
     github_id: i64,
@@ -106,20 +99,6 @@ pub async fn upsert_okta_user(
 pub async fn update_last_login(pool: &PgPool, id: Uuid) -> sqlx::Result<()> {
     sqlx::query("UPDATE users SET last_login_at = NOW() WHERE id = $1")
         .bind(id)
-        .execute(pool)
-        .await?;
-    Ok(())
-}
-
-/// Issue #36: Set per-user GPU quota. NULL = unlimited.
-pub async fn set_user_gpu_quota(
-    pool: &PgPool,
-    user_id: Uuid,
-    max_gpus: Option<i32>,
-) -> sqlx::Result<()> {
-    sqlx::query("UPDATE users SET max_gpus = $2 WHERE id = $1")
-        .bind(user_id)
-        .bind(max_gpus)
         .execute(pool)
         .await?;
     Ok(())

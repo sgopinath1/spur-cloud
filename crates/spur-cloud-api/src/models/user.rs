@@ -28,11 +28,26 @@ pub struct UserProfile {
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub is_admin: bool,
+    pub spur_account: String,
+    /// How this user authenticates: `github`, `okta`, or `local`.
+    pub auth_provider: String,
+    pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+}
+
+fn auth_provider_for(user: &User) -> String {
+    if user.github_id.is_some() {
+        "github".into()
+    } else if user.okta_sub.is_some() {
+        "okta".into()
+    } else {
+        "local".into()
+    }
 }
 
 impl From<User> for UserProfile {
     fn from(u: User) -> Self {
+        let auth_provider = auth_provider_for(&u);
         Self {
             id: u.id,
             email: u.email,
@@ -40,6 +55,9 @@ impl From<User> for UserProfile {
             display_name: u.display_name,
             avatar_url: u.avatar_url,
             is_admin: u.is_admin,
+            spur_account: u.spur_account,
+            auth_provider,
+            last_login_at: u.last_login_at,
             created_at: u.created_at,
         }
     }

@@ -7,7 +7,6 @@ use tracing::debug;
 pub struct OidcDiscovery {
     pub authorization_endpoint: String,
     pub token_endpoint: String,
-    pub jwks_uri: String,
     pub issuer: String,
 }
 
@@ -23,12 +22,10 @@ pub async fn fetch_discovery(issuer: &str) -> anyhow::Result<OidcDiscovery> {
     Ok(discovery)
 }
 
-/// OIDC token response.
+/// OIDC token response (only fields we use).
 #[derive(Debug, Deserialize)]
 pub struct TokenResponse {
-    pub access_token: String,
     pub id_token: Option<String>,
-    pub token_type: String,
 }
 
 /// Exchange authorization code for tokens.
@@ -70,8 +67,21 @@ pub fn decode_id_token_unverified(id_token: &str) -> anyhow::Result<IdTokenClaim
     Ok(claims)
 }
 
+/// Reject ID tokens whose `iss` does not match the configured Okta issuer.
+pub fn validate_id_token_issuer(
+    claims: &IdTokenClaims,
+    expected_issuer: &str,
+) -> Result<(), &'static str> {
+    match &claims.iss {
+        Some(iss) if iss == expected_issuer => Ok(()),
+        Some(_) => Err("ID token issuer mismatch"),
+        None => Err("ID token missing iss claim"),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct IdTokenClaims {
+    pub iss: Option<String>,
     pub sub: String,
     pub email: Option<String>,
     pub name: Option<String>,

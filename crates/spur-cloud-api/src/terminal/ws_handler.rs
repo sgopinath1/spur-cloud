@@ -140,7 +140,7 @@ pub async fn handle_terminal(
                 }
                 _ = ping_interval.tick() => {
                     // Issue #39: Send WebSocket ping to keep connection alive
-                    if ws_sink.send(Message::Ping(vec![].into())).await.is_err() {
+                    if ws_sink.send(Message::Ping(vec![])).await.is_err() {
                         debug!(pod = %pod_for_log2, "ws ping send failed — client disconnected");
                         break;
                     }
@@ -332,7 +332,7 @@ pub async fn handle_terminal_spur(
                 }
                 _ = ping_interval.tick() => {
                     // Issue #39: Send WebSocket ping to keep connection alive
-                    if ws_sink.send(Message::Ping(vec![].into())).await.is_err() {
+                    if ws_sink.send(Message::Ping(vec![])).await.is_err() {
                         debug!(job_id, "ws ping send failed — client disconnected");
                         break;
                     }
@@ -368,8 +368,10 @@ mod tests {
         assert!(WS_SEND_TIMEOUT < WS_PING_INTERVAL);
 
         // Verify retry count is reasonable
-        assert!(AGENT_CONNECT_RETRIES >= 1);
-        assert!(AGENT_CONNECT_RETRIES <= 10);
+        const {
+            assert!(AGENT_CONNECT_RETRIES >= 1);
+            assert!(AGENT_CONNECT_RETRIES <= 10);
+        }
     }
 
     #[test]
