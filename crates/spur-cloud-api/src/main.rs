@@ -151,8 +151,8 @@ async fn handle_k8s_crd_session(state: &AppState, session: &models::session::Ses
     }
 
     let node = status.assigned_nodes.first().cloned().unwrap_or_default();
-    let current_state = SessionState::from_str(&session.state);
-    let crd_state = SessionState::from_str(&status.state.to_lowercase());
+    let current_state = SessionState::parse(&session.state);
+    let crd_state = SessionState::parse(&status.state.to_lowercase());
 
     match crd_state {
         SessionState::Running if !node.is_empty() => {
@@ -360,7 +360,7 @@ async fn session_sync_loop(state: AppState) {
             let spur_state = job.state();
             let exit_code = job.exit_code;
 
-            let current_state = SessionState::from_str(&session.state);
+            let current_state = SessionState::parse(&session.state);
 
             // Match on Spur state first, then check backend type only for Running state
             let new_state = match spur_state {

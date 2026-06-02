@@ -67,6 +67,7 @@ export interface Session {
   gpu_type: string;
   gpu_count: number;
   container_image: string;
+  partition: string | null;
   ssh_enabled: boolean;
   ssh_host: string | null;
   ssh_port: number | null;
@@ -76,6 +77,7 @@ export interface Session {
   started_at: string | null;
   ended_at: string | null;
   node_name: string | null;
+  pod_name: string | null;
   error_message: string | null;
 }
 
@@ -141,6 +143,9 @@ export interface UserProfile {
   display_name: string | null;
   avatar_url: string | null;
   is_admin: boolean;
+  spur_account: string;
+  auth_provider: 'github' | 'okta' | 'local';
+  last_login_at: string | null;
   created_at: string;
 }
 

@@ -73,7 +73,8 @@ jobs:
             ${{ runner.os }}-cargo-clippy-
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -W clippy::all
+        run: cargo clippy --workspace --all-targets --locked -- -W clippy::all
+
 
   frontend:
     runs-on: ubuntu-latest

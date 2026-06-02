@@ -13,21 +13,12 @@ use spur_proto::proto::*;
 // ── SpurJob CRD (minimal definition matching spur-k8s operator) ──
 
 /// GPU configuration for a SpurJob.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GpuSpec {
     pub count: u32,
     #[serde(default)]
     pub gpu_type: Option<String>,
-}
-
-impl Default for GpuSpec {
-    fn default() -> Self {
-        Self {
-            count: 0,
-            gpu_type: None,
-        }
-    }
 }
 
 /// SpurJob status — matches the operator's SpurJobStatus.
@@ -81,49 +72,57 @@ fn default_one() -> u32 {
     1
 }
 
+/// Parameters for creating a SpurJob CRD (K8s backend).
+pub struct CreateSpurJobCrdParams<'a> {
+    pub kube_client: &'a kube::Client,
+    pub namespace: &'a str,
+    pub session_id: &'a str,
+    pub name: &'a str,
+    pub gpu_type: &'a str,
+    pub gpu_count: i32,
+    pub container_image: &'a str,
+    pub time_limit_min: i32,
+}
+
 /// Create a SpurJob CRD in Kubernetes for a spur-cloud session.
 ///
 /// Used when `backend = "k8s"`. The spur-k8s operator watches for SpurJob
 /// resources, submits them to spurctld, and creates pods.
-pub async fn create_spurjob_crd(
-    kube_client: &kube::Client,
-    namespace: &str,
-    session_id: &str,
-    name: &str,
-    gpu_type: &str,
-    gpu_count: i32,
-    container_image: &str,
-    time_limit_min: i32,
-    ssh_enabled: bool,
-) -> anyhow::Result<String> {
-    let api: Api<SpurJob> = Api::namespaced(kube_client.clone(), namespace);
+pub async fn create_spurjob_crd(params: CreateSpurJobCrdParams<'_>) -> anyhow::Result<String> {
+    let api: Api<SpurJob> = Api::namespaced(params.kube_client.clone(), params.namespace);
 
-    let job_name = crd_name_for_session(session_id);
+    let job_name = crd_name_for_session(params.session_id);
 
     let mut labels = BTreeMap::new();
-    labels.insert("spur.ai/session-id".to_string(), session_id.to_string());
+    labels.insert(
+        "spur.ai/session-id".to_string(),
+        params.session_id.to_string(),
+    );
     labels.insert("spur.ai/managed-by".to_string(), "spur-cloud".to_string());
 
     let mut env = HashMap::new();
-    env.insert("GPUAAS_SESSION_ID".to_string(), session_id.to_string());
+    env.insert(
+        "GPUAAS_SESSION_ID".to_string(),
+        params.session_id.to_string(),
+    );
 
     let spurjob = SpurJob::new(
         &job_name,
         SpurJobSpec {
-            name: name.to_string(),
-            image: container_image.to_string(),
-            gpus: if gpu_count > 0 {
+            name: params.name.to_string(),
+            image: params.container_image.to_string(),
+            gpus: if params.gpu_count > 0 {
                 GpuSpec {
-                    count: gpu_count as u32,
-                    gpu_type: Some(gpu_type.to_string()),
+                    count: params.gpu_count as u32,
+                    gpu_type: Some(params.gpu_type.to_string()),
                 }
             } else {
                 GpuSpec::default()
             },
             num_nodes: 1,
             tasks_per_node: 1,
-            cpus_per_task: if gpu_count > 0 { 8 } else { 4 },
-            time_limit: Some(format!("{}m", time_limit_min)),
+            cpus_per_task: if params.gpu_count > 0 { 8 } else { 4 },
+            time_limit: Some(format!("{}m", params.time_limit_min)),
             command: vec![],
             args: vec![],
             env,
@@ -134,15 +133,15 @@ pub async fn create_spurjob_crd(
 
     let mut spurjob = spurjob;
     spurjob.metadata.labels = Some(labels);
-    spurjob.metadata.namespace = Some(namespace.to_string());
+    spurjob.metadata.namespace = Some(params.namespace.to_string());
 
     let created = api.create(&PostParams::default(), &spurjob).await?;
     let crd_name = created.metadata.name.unwrap_or_default();
 
     info!(
-        session_id,
+        session_id = params.session_id,
         crd_name = %crd_name,
-        namespace,
+        namespace = params.namespace,
         "SpurJob CRD created for K8s session"
     );
 
@@ -205,30 +204,35 @@ pub async fn delete_spurjob_crd(
     }
 }
 
+/// Parameters for submitting a session to spurctld (native-host backend).
+pub struct SubmitSessionParams<'a> {
+    pub client: &'a mut SlurmControllerClient<Channel>,
+    pub name: &'a str,
+    pub gpu_type: &'a str,
+    pub gpu_count: i32,
+    pub container_image: &'a str,
+    pub partition: Option<&'a str>,
+    pub ssh_enabled: bool,
+    pub time_limit_min: i32,
+    pub session_id: &'a str,
+    pub ssh_keys: &'a str,
+    pub ssh_port: Option<u16>,
+    pub native_host: bool,
+    pub spur_user: &'a str,
+    pub spur_account: &'a str,
+}
+
 /// Submit a GPU session as a Spur job. Returns the assigned job ID.
 ///
 /// `ssh_port`: If set, passed as GPUAAS_SSH_PORT (used in native-host mode for deterministic sshd port).
 /// `native_host`: If true, clears container_image so Spur runs the job as a bare process.
-pub async fn submit_session(
-    client: &mut SlurmControllerClient<Channel>,
-    name: &str,
-    gpu_type: &str,
-    gpu_count: i32,
-    container_image: &str,
-    partition: Option<&str>,
-    ssh_enabled: bool,
-    time_limit_min: i32,
-    session_id: &str,
-    ssh_keys: &str,
-    ssh_port: Option<u16>,
-    native_host: bool,
-) -> anyhow::Result<u32> {
+pub async fn submit_session(params: SubmitSessionParams<'_>) -> anyhow::Result<u32> {
     let mut environment = HashMap::new();
-    environment.insert("GPUAAS_SESSION_ID".into(), session_id.to_string());
-    if ssh_enabled && !ssh_keys.is_empty() {
-        environment.insert("GPUAAS_SSH_KEYS".into(), ssh_keys.to_string());
+    environment.insert("GPUAAS_SESSION_ID".into(), params.session_id.to_string());
+    if params.ssh_enabled && !params.ssh_keys.is_empty() {
+        environment.insert("GPUAAS_SSH_KEYS".into(), params.ssh_keys.to_string());
     }
-    if let Some(port) = ssh_port {
+    if let Some(port) = params.ssh_port {
         environment.insert("GPUAAS_SSH_PORT".into(), port.to_string());
     }
 
@@ -271,7 +275,7 @@ pub async fn submit_session(
     );
 
     // Issue #48: Only include GPU profile and rocm-smi wrapper for GPU sessions
-    let gpu_setup = if gpu_count > 0 {
+    let gpu_setup = if params.gpu_count > 0 {
         format!(
             "cat > /etc/profile.d/spur-gpu.sh << 'PROFILE'\n\
             {gpu_profile}\
@@ -282,7 +286,7 @@ pub async fn submit_session(
         "# CPU-only session — no GPU profile\n".to_string()
     };
 
-    let script = if ssh_enabled {
+    let script = if params.ssh_enabled {
         format!(
             "#!/bin/bash\n\
             {gpu_setup}\
@@ -308,41 +312,44 @@ pub async fn submit_session(
     };
 
     // Issue #48: CPU-only sessions use empty gres and fewer CPUs
-    let gres = if gpu_count > 0 {
-        vec![format!("gpu:{}:{}", gpu_type, gpu_count)]
+    let gres = if params.gpu_count > 0 {
+        vec![format!("gpu:{}:{}", params.gpu_type, params.gpu_count)]
     } else {
         vec![]
     };
 
     let spec = JobSpec {
-        name: name.to_string(),
-        partition: partition.unwrap_or_default().to_string(),
+        name: params.name.to_string(),
+        partition: params.partition.unwrap_or_default().to_string(),
+        user: params.spur_user.to_string(),
+        account: params.spur_account.to_string(),
         num_nodes: 1,
         num_tasks: 1,
-        cpus_per_task: if gpu_count > 0 { 8 } else { 4 },
+        cpus_per_task: if params.gpu_count > 0 { 8 } else { 4 },
         gres,
         script,
         environment,
         time_limit: Some(prost_types::Duration {
-            seconds: time_limit_min as i64 * 60,
+            seconds: params.time_limit_min as i64 * 60,
             nanos: 0,
         }),
         interactive: true,
         // Native-host mode: skip container image, run as bare process
-        container_image: if native_host {
+        container_image: if params.native_host {
             String::new()
         } else {
-            container_image.to_string()
+            params.container_image.to_string()
         },
         ..Default::default()
     };
 
-    let resp = client
+    let resp = params
+        .client
         .submit_job(SubmitJobRequest { spec: Some(spec) })
         .await?;
 
     let job_id = resp.into_inner().job_id;
-    debug!(job_id, name, "submitted session to spur");
+    debug!(job_id, name = params.name, "submitted session to spur");
     Ok(job_id)
 }
 

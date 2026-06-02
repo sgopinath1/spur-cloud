@@ -71,8 +71,8 @@ rand = "0.8"
 sha2 = "0.10"
 semver = "1"
 
-# Spur proto (git dependency from ROCm/spur main branch)
-spur-proto = { git = "https://github.com/ROCm/spur.git", branch = "main" }
+# Spur proto — pinned to ROCm/spur release tag (see Cargo.lock for exact commit)
+spur-proto = { git = "https://github.com/ROCm/spur.git", tag = "v0.3.0" }
 
 # Internal
 spur-cloud-common = { path = "crates/spur-cloud-common" }
