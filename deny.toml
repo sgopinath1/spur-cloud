@@ -1,0 +1,43 @@
+[graph]
+all-features = true
+
+[advisories]
+yanked = "warn"
+unmaintained = "workspace"
+
+[licenses]
+confidence-threshold = 0.8
+
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "BSL-1.0",
+    "Unlicense",
+    "CDLA-Permissive-2.0",
+]
+
+# Git-sourced spur-proto uses license.workspace = true; synthesized manifest has no license field.
+[[licenses.clarify]]
+name = "spur-proto"
+expression = "Apache-2.0"
+license-files = [
+    { path = "../../LICENSE", hash = 0x001c7e6c },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = [
+    "https://github.com/ROCm/spur",
+]
